@@ -12,7 +12,13 @@ def analyze_theme():
         # 获取前端发送的JSON数据
         request_data = request.json
         method = request_data.get('method')  # 获取前端传递的方法值
-        processed_data = process_database_data()
+        # 从请求的 JSON 数据中获取 danmuDetail
+        danmu_detail = request_data.get('danmuDetail')
+        if danmu_detail:
+            danmu_type = danmu_detail.get('type')
+            danmu_data = danmu_detail.get('data')
+
+            processed_data = process_database_data(danmu_type, danmu_data)
 
         # 根据不同的方法值进行主题分析处理
         if method == '1':

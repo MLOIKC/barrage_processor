@@ -15,7 +15,7 @@ negationword_file_path = os.path.join(current_directory, 'blueprints\\sentiment\
 sentiment_dict_path = os.path.join(current_directory, 'blueprints\\sentiment\\emotion.csv')
 
 
-def process_database_data():
+def process_database_data(danmu_type, danmu_data):
     DATABASE_URI = 'mysql://root:123456@localhost:3306/barrage'
     engine = create_engine(DATABASE_URI)
 
@@ -23,8 +23,19 @@ def process_database_data():
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    # 使用 text() 函数将 SQL 语句转换为文本表达式
-    query = session.query(text("content FROM rawdanmu_data"))
+    # 根据不同的 danmu_type 构建不同的 SQL 查询语句
+    if danmu_type == 'Beg':
+        query = session.query(text("content FROM danmu_data WHERE title = :data")).params(data=danmu_data)
+    elif danmu_type == 'Int':
+        query = session.query(text("content FROM fulldanmu_data WHERE bvid = :data")).params(data=danmu_data)
+    elif danmu_type == 'Adv':
+        query = session.query(text("content FROM rawdanmu_data WHERE bvid = :data")).params(data=danmu_data)
+    else:
+        # 如果 danmu_type 不在预期的范围内，返回查询错误信息
+        error_message = 'Invalid danmu_type'
+        return {'error': error_message}
+
+    # 执行查询并获取结果
     contents = query.all()
 
     # 关闭数据库会话
@@ -149,7 +160,7 @@ def match_and_save(processed_data):
                                 emotion, next_word_intensity = sentiment_dict.get(next_word, ('', 0))
                                 # 根据情感词的正负判断取正值还是负值
                                 next_word_intensity *= 1 if emotion and emotion in (
-                                'PA', 'PE', 'PD', 'PH', 'PG', 'PB', 'PK', 'PC') else -1
+                                    'PA', 'PE', 'PD', 'PH', 'PG', 'PB', 'PK', 'PC') else -1
                                 adjusted_intensity += next_word_intensity * value
                                 # print(f"程度词划分1：{modifier}/{word}/{next_word}/{next_word_intensity}/{value}")
                                 found_modifier = True  # 标记找到了程度词
@@ -160,7 +171,7 @@ def match_and_save(processed_data):
                             emotion, base_intensity = sentiment_dict.get(part, ('', 0))  # 获取去除程度词后词的情感类别和强度
                             # 根据情感词的正负判断取正值还是负值
                             base_intensity *= 1 if emotion and emotion in (
-                            'PA', 'PE', 'PD', 'PH', 'PG', 'PB', 'PK', 'PC') else -1
+                                'PA', 'PE', 'PD', 'PH', 'PG', 'PB', 'PK', 'PC') else -1
                             adjusted_intensity += base_intensity * value  # 用程度词的强度值乘以去除程度词后词的情感强度
                             adjusted_intensity -= base_intensity  # 若程度词后词在第一个判断中已经计算过了故需要减去
                             # print(f"程度词划分2：{modifier}/{word}/{base_intensity}/{value}")
@@ -178,7 +189,7 @@ def match_and_save(processed_data):
                                 emotion, next_word_intensity = sentiment_dict.get(next_word, ('', 0))
                                 # 根据情感词的正负判断取正值还是负值
                                 next_word_intensity *= 1 if emotion and emotion in (
-                                'PA', 'PE', 'PD', 'PH', 'PG', 'PB', 'PK', 'PC') else -1
+                                    'PA', 'PE', 'PD', 'PH', 'PG', 'PB', 'PK', 'PC') else -1
                                 adjusted_intensity -= next_word_intensity * value
                                 # print(f"否定词划分1：{modifier}/{word}/{next_word}/{next_word_intensity}/{value}")
                                 found_modifier = True  # 标记找到了否定词
@@ -189,7 +200,7 @@ def match_and_save(processed_data):
                             emotion, base_intensity = sentiment_dict.get(part, ('', 0))  # 获取去除否定词后词的情感类别和强度
                             # 根据情感词的正负判断取正值还是负值
                             base_intensity *= 1 if emotion and emotion in (
-                            'PA', 'PE', 'PD', 'PH', 'PG', 'PB', 'PK', 'PC') else -1
+                                'PA', 'PE', 'PD', 'PH', 'PG', 'PB', 'PK', 'PC') else -1
                             adjusted_intensity -= base_intensity * value  # 用否定词的强度值乘以去除否定词后词的情感强度
                             adjusted_intensity -= base_intensity  # 若否定词后词在第一个判断中已经计算过了故需要减去
                             # print(f"否定词划分2：{modifier}/{word}/{base_intensity}/{value}")
@@ -229,6 +240,12 @@ def match_and_save(processed_data):
         line['major_emotion'] = major_category
         line['overall_emotion'] = overall_category
 
+    statistics = {
+        "major_categories": major_categories_count,
+        "overall_categories": overall_categories_count
+    }
+
+    return statistics
     # print(f"情感类别不为空的词的数量: {count_non_empty_emotion}/{count_emotion}")
     # print("情感大类统计:")
     # for category, count in major_categories_count.items():
