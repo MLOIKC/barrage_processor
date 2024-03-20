@@ -246,11 +246,4 @@ def match_and_save(processed_data):
     }
 
     return statistics
-    # print(f"情感类别不为空的词的数量: {count_non_empty_emotion}/{count_emotion}")
-    # print("情感大类统计:")
-    # for category, count in major_categories_count.items():
-    #     print(f"{category}: {count}")
-    #
-    # print("整体情感大类统计:")
-    # for category, count in overall_categories_count.items():
-    #     print(f"{category}: {count}")
+
