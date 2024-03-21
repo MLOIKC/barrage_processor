@@ -106,14 +106,55 @@ def process_database_datedata(danmu_type, danmu_data):
     processed_data = []
     for content in contents:
         if danmu_type == 'Adv':
-            date_data = content[0]+'000'
+            date_data = content[0] + '000'
         elif danmu_type == 'Int':
-            date_data = content[0]*1000
+            date_data = content[0] * 1000
         else:
             date_data = content[0]  # 因为查询返回的是元组，content 是第一个元素
 
         processed_data.append({
             'date': date_data
+        })
+
+    return processed_data
+
+
+# 转换颜色值为RGB
+def convert_color_to_rgb(color):
+    r = (color >> 16) & 255
+    g = (color >> 8) & 255
+    b = color & 255
+    return r, g, b
+
+
+def process_database_colordata(danmu_type, danmu_data):
+    DATABASE_URI = 'mysql://root:123456@localhost:3306/barrage'
+    engine = create_engine(DATABASE_URI)
+
+    # 创建数据库会话
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    # 根据不同的 danmu_type 构建不同的 SQL 查询语句
+    if danmu_type == 'Int':
+        query = session.query(text("color FROM fulldanmu_data WHERE bvid = :data")).params(data=danmu_data)
+    elif danmu_type == 'Adv':
+        query = session.query(text("color FROM rawdanmu_data WHERE bvid = :data")).params(data=danmu_data)
+    else:
+        # 如果 danmu_type 不在预期的范围内，返回查询错误信息
+        error_message = 'Invalid danmu_type'
+        return {'error': error_message}
+
+    # 执行查询并获取结果
+    contents = query.all()
+
+    # 关闭数据库会话
+    session.close()
+
+    processed_data = []
+    for content in contents:
+        processed_data.append({
+            'color': convert_color_to_rgb(content[0])
         })
 
     return processed_data
