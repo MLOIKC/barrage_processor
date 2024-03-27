@@ -1,9 +1,23 @@
 from collections import Counter
+from datetime import datetime
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+from app import db
+from blueprints.danmu.models import get_latest_analysis_range
 
 
-def get_keywords(processed_data):
+class KeywordsAnalysisResult(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    danmu_type = db.Column(db.String(255), nullable=False)
+    danmu_data = db.Column(db.String(255), nullable=False)
+    start_danmu_id = db.Column(db.String(255), nullable=False)
+    end_danmu_id = db.Column(db.String(255), nullable=False)
+    analysis_timestamp = db.Column(db.Integer)
+    word_data = db.Column(db.JSON)
+
+
+def get_keywords(danmu_type, danmu_data, processed_data):
     words_list = []
     for line in processed_data:
         # 按空格划分单词并筛选出长度大于1的词语
@@ -24,7 +38,42 @@ def get_keywords(processed_data):
     # 转换为前端需要的格式
     word_data = [{'text': word, 'frequency': freq} for word, freq in top_word_freq]
 
+    start_id, end_id = get_latest_analysis_range()
+    save_keywords_analysis_result(danmu_type, danmu_data, start_id, end_id, word_data)
     return word_data
+
+
+def save_keywords_analysis_result(danmu_type, danmu_data, start_id, end_id, word_data):
+    try:
+        # 创建所有表，如果尚未存在
+        db.create_all()
+        # Get current timestamp
+        analysis_timestamp = int(datetime.now().timestamp())
+        analysis = KeywordsAnalysisResult(
+            danmu_type=danmu_type,
+            danmu_data=danmu_data,
+            start_danmu_id=start_id,
+            end_danmu_id=end_id,
+            analysis_timestamp=analysis_timestamp,
+            word_data=word_data
+        )
+        db.session.add(analysis)
+        db.session.commit()
+        return True
+    except Exception as e:
+        print(f"Error saving keywords analysis result: {e}")
+        db.session.rollback()
+        return False
+
+
+class TimeAnalysisResult(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    danmu_type = db.Column(db.String(255), nullable=False)
+    danmu_data = db.Column(db.String(255), nullable=False)
+    start_danmu_id = db.Column(db.String(255), nullable=False)
+    end_danmu_id = db.Column(db.String(255), nullable=False)
+    analysis_timestamp = db.Column(db.Integer)
+    time_data = db.Column(db.JSON)
 
 
 def process_database_timedata(danmu_type, danmu_data):
@@ -74,7 +123,42 @@ def process_database_timedata(danmu_type, danmu_data):
             'time': time_data
         })
 
+    start_id, end_id = get_latest_analysis_range()
+    save_time_analysis_result(danmu_type, danmu_data, start_id, end_id, processed_data)
     return processed_data
+
+
+def save_time_analysis_result(danmu_type, danmu_data, start_id, end_id, time_data):
+    try:
+        # 创建所有表，如果尚未存在
+        db.create_all()
+        # Get current timestamp
+        analysis_timestamp = int(datetime.now().timestamp())
+        analysis = TimeAnalysisResult(
+            danmu_type=danmu_type,
+            danmu_data=danmu_data,
+            start_danmu_id=start_id,
+            end_danmu_id=end_id,
+            analysis_timestamp=analysis_timestamp,
+            time_data=time_data
+        )
+        db.session.add(analysis)
+        db.session.commit()
+        return True
+    except Exception as e:
+        print(f"Error saving time analysis result: {e}")
+        db.session.rollback()
+        return False
+
+
+class DateAnalysisResult(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    danmu_type = db.Column(db.String(255), nullable=False)
+    danmu_data = db.Column(db.String(255), nullable=False)
+    start_danmu_id = db.Column(db.String(255), nullable=False)
+    end_danmu_id = db.Column(db.String(255), nullable=False)
+    analysis_timestamp = db.Column(db.Integer)
+    date_data = db.Column(db.JSON)
 
 
 def process_database_datedata(danmu_type, danmu_data):
@@ -116,7 +200,42 @@ def process_database_datedata(danmu_type, danmu_data):
             'date': date_data
         })
 
+    start_id, end_id = get_latest_analysis_range()
+    save_date_analysis_result(danmu_type, danmu_data, start_id, end_id, processed_data)
     return processed_data
+
+
+def save_date_analysis_result(danmu_type, danmu_data, start_id, end_id, date_data):
+    try:
+        # 创建所有表，如果尚未存在
+        db.create_all()
+        # Get current timestamp
+        analysis_timestamp = int(datetime.now().timestamp())
+        analysis = DateAnalysisResult(
+            danmu_type=danmu_type,
+            danmu_data=danmu_data,
+            start_danmu_id=start_id,
+            end_danmu_id=end_id,
+            analysis_timestamp=analysis_timestamp,
+            date_data=date_data
+        )
+        db.session.add(analysis)
+        db.session.commit()
+        return True
+    except Exception as e:
+        print(f"Error saving date analysis result: {e}")
+        db.session.rollback()
+        return False
+
+
+class ColorAnalysisResult(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    danmu_type = db.Column(db.String(255), nullable=False)
+    danmu_data = db.Column(db.String(255), nullable=False)
+    start_danmu_id = db.Column(db.String(255), nullable=False)
+    end_danmu_id = db.Column(db.String(255), nullable=False)
+    analysis_timestamp = db.Column(db.Integer)
+    color_data = db.Column(db.JSON)
 
 
 # 转换颜色值为RGB
@@ -157,4 +276,29 @@ def process_database_colordata(danmu_type, danmu_data):
             'color': convert_color_to_rgb(content[0])
         })
 
+    start_id, end_id = get_latest_analysis_range()
+    save_color_analysis_result(danmu_type, danmu_data, start_id, end_id, processed_data)
     return processed_data
+
+
+def save_color_analysis_result(danmu_type, danmu_data, start_id, end_id, color_data):
+    try:
+        # 创建所有表，如果尚未存在
+        db.create_all()
+        # Get current timestamp
+        analysis_timestamp = int(datetime.now().timestamp())
+        analysis = ColorAnalysisResult(
+            danmu_type=danmu_type,
+            danmu_data=danmu_data,
+            start_danmu_id=start_id,
+            end_danmu_id=end_id,
+            analysis_timestamp=analysis_timestamp,
+            color_data=color_data
+        )
+        db.session.add(analysis)
+        db.session.commit()
+        return True
+    except Exception as e:
+        print(f"Error saving color analysis result: {e}")
+        db.session.rollback()
+        return False

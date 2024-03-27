@@ -1,9 +1,13 @@
+from datetime import datetime
+
 from gensim import corpora, models
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD, NMF
+from app import db
+from blueprints.danmu.models import get_latest_analysis_range
 
 
-def lda_theme_analysis(processed_data):
+def lda_theme_analysis(danmu_type, danmu_data, processed_data):
     words_list = []
     for line in processed_data:
         # 按空格划分单词并筛选出长度大于1的词语
@@ -23,11 +27,14 @@ def lda_theme_analysis(processed_data):
                        lda_model.print_topic(topic_id, topn=5).split('+')]
         topics.append(topic_words)
 
+    start_id, end_id = get_latest_analysis_range()
+    theme_method = "lda"
+    save_theme_analysis_result(danmu_type, danmu_data, start_id, end_id, theme_method, topics)
     # 将提取的主题词返回给前端
     return topics
 
 
-def lsa_theme_analysis(processed_data):
+def lsa_theme_analysis(danmu_type, danmu_data, processed_data):
     documents = []
     for line in processed_data:
         documents.append(line['segmented_content'])
@@ -47,10 +54,13 @@ def lsa_theme_analysis(processed_data):
         topic_terms = [terms[index] for index in topic.argsort()[:-6:-1]]
         topic_key_terms.append(topic_terms)
 
+    start_id, end_id = get_latest_analysis_range()
+    theme_method = "lsa"
+    save_theme_analysis_result(danmu_type, danmu_data, start_id, end_id, theme_method, topic_key_terms)
     return topic_key_terms
 
 
-def nmf_theme_analysis(processed_data):
+def nmf_theme_analysis(danmu_type, danmu_data, processed_data):
     documents = []
     for line in processed_data:
         documents.append(line['segmented_content'])
@@ -70,4 +80,42 @@ def nmf_theme_analysis(processed_data):
         topic_terms = [terms[index] for index in topic.argsort()[:-6:-1]]
         topic_key_terms.append(topic_terms)
 
+    start_id, end_id = get_latest_analysis_range()
+    theme_method = "nmf"
+    save_theme_analysis_result(danmu_type, danmu_data, start_id, end_id, theme_method, topic_key_terms)
     return topic_key_terms
+
+
+class ThemeAnalysisResult(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    danmu_type = db.Column(db.String(255), nullable=False)
+    danmu_data = db.Column(db.String(255), nullable=False)
+    start_danmu_id = db.Column(db.String(255), nullable=False)
+    end_danmu_id = db.Column(db.String(255), nullable=False)
+    analysis_timestamp = db.Column(db.Integer)
+    theme_method = db.Column(db.String(255), nullable=False)
+    theme_words = db.Column(db.JSON)  # 使用 JSON 类型存储主题词列表
+
+
+def save_theme_analysis_result(danmu_type, danmu_data, start_id, end_id, theme_method, theme_words):
+    try:
+        # 创建所有表，如果尚未存在
+        db.create_all()
+        # Get current timestamp
+        analysis_timestamp = int(datetime.now().timestamp())
+        analysis = ThemeAnalysisResult(
+            danmu_type=danmu_type,
+            danmu_data=danmu_data,
+            start_danmu_id=start_id,
+            end_danmu_id=end_id,
+            analysis_timestamp=analysis_timestamp,
+            theme_method=theme_method,
+            theme_words=theme_words
+        )
+        db.session.add(analysis)
+        db.session.commit()
+        return True
+    except Exception as e:
+        print(f"Error saving theme analysis result: {e}")
+        db.session.rollback()
+        return False

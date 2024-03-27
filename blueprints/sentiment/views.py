@@ -15,5 +15,5 @@ def analyze_sentiment():
         danmu_data = danmu_detail.get('data')
 
         processed_data = process_database_data(danmu_type, danmu_data)
-        result_data = match_and_save(processed_data)
+        result_data = match_and_save(danmu_type, danmu_data, processed_data)
     return jsonify({'sentiment': result_data})

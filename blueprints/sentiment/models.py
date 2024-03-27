@@ -1,11 +1,16 @@
+from datetime import datetime
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from zhconv import convert
 import jieba
 import re
 import os
+from app import db
 
 # 获取停用词文件路径为当前文件夹中的 stoplist_new.txt
+from blueprints.danmu.models import get_latest_analysis_range
+
 current_directory = os.getcwd()
 stopword_file_path = os.path.join(current_directory, 'blueprints\\sentiment\\stoplist_new.txt')
 # 读取程度词和否定词
@@ -119,7 +124,7 @@ def load_sentiment_dict(sentiment_dict_path):
     return sentiment_dict
 
 
-def match_and_save(processed_data):
+def match_and_save(danmu_type, danmu_data, processed_data):
     degree_words = load_word_dict(degreeword_file_path)
     negation_words = load_word_dict(negationword_file_path)
     sentiment_dict = load_sentiment_dict(sentiment_dict_path)
@@ -244,6 +249,40 @@ def match_and_save(processed_data):
         "major_categories": major_categories_count,
         "overall_categories": overall_categories_count
     }
+    start_id, end_id = get_latest_analysis_range()
+    save_sentiment_analysis_result(danmu_type, danmu_data, start_id, end_id, statistics)
 
     return statistics
 
+
+class SentimentAnalysisResult(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    danmu_type = db.Column(db.String(255), nullable=False)
+    danmu_data = db.Column(db.String(255), nullable=False)
+    start_danmu_id = db.Column(db.String(255), nullable=False)
+    end_danmu_id = db.Column(db.String(255), nullable=False)
+    analysis_timestamp = db.Column(db.Integer)
+    sentiment_data = db.Column(db.JSON)
+
+
+def save_sentiment_analysis_result(danmu_type, danmu_data, start_id, end_id, sentiment_data):
+    try:
+        # 创建所有表，如果尚未存在
+        db.create_all()
+        # 获取当前时间戳
+        analysis_timestamp = int(datetime.now().timestamp())
+        analysis = SentimentAnalysisResult(
+            danmu_type = danmu_type,
+            danmu_data = danmu_data,
+            start_danmu_id=start_id,
+            end_danmu_id=end_id,
+            analysis_timestamp = analysis_timestamp,
+            sentiment_data = sentiment_data
+        )
+        db.session.add(analysis)
+        db.session.commit()
+        return True
+    except Exception as e:
+        print(f"Error saving sentiment analysis result: {e}")
+        db.session.rollback()
+        return False

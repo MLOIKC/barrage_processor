@@ -18,7 +18,7 @@ def analyze_keywords():
 
             processed_data = process_database_data(danmu_type, danmu_data)
 
-            return jsonify(get_keywords(processed_data))
+            return jsonify(get_keywords(danmu_type, danmu_data, processed_data))
         else:
             return jsonify({'error': 'Invalid request data'}), 400
     except Exception as e:

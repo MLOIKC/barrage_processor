@@ -18,12 +18,14 @@ from blueprints.danmu.views import danmu_bp
 from blueprints.sentiment.views import senti_bp
 from blueprints.theme.views import theme_bp
 from blueprints.statistics.views import stat_bp
+from blueprints.history.views import history_bp
 
 # 注册蓝图
 app.register_blueprint(danmu_bp)
 app.register_blueprint(senti_bp)
 app.register_blueprint(theme_bp)
 app.register_blueprint(stat_bp)
+app.register_blueprint(history_bp)
 
 if __name__ == '__main__':
     with app.app_context():

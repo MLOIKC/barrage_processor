@@ -22,11 +22,11 @@ def analyze_theme():
 
         # 根据不同的方法值进行主题分析处理
         if method == '1':
-            result = lda_theme_analysis(processed_data)
+            result = lda_theme_analysis(danmu_type, danmu_data,processed_data)
         elif method == '2':
-            result = lsa_theme_analysis(processed_data)
+            result = lsa_theme_analysis(danmu_type, danmu_data,processed_data)
         elif method == '3':
-            result = nmf_theme_analysis(processed_data)
+            result = nmf_theme_analysis(danmu_type, danmu_data,processed_data)
         else:
             return jsonify({'error': 'Invalid method value'}), 400
 
