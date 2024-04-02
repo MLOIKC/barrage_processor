@@ -1,6 +1,6 @@
 from collections import Counter
 from datetime import datetime
-
+from collections import defaultdict
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from app import db
@@ -294,6 +294,123 @@ def save_color_analysis_result(danmu_type, danmu_data, start_id, end_id, color_d
             end_danmu_id=end_id,
             analysis_timestamp=analysis_timestamp,
             color_data=color_data
+        )
+        db.session.add(analysis)
+        db.session.commit()
+        return True
+    except Exception as e:
+        print(f"Error saving color analysis result: {e}")
+        db.session.rollback()
+        return False
+
+
+class UserAnalysisResult(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    danmu_type = db.Column(db.String(255), nullable=False)
+    danmu_data = db.Column(db.String(255), nullable=False)
+    start_danmu_id = db.Column(db.String(255), nullable=False)
+    end_danmu_id = db.Column(db.String(255), nullable=False)
+    analysis_timestamp = db.Column(db.Integer)
+    user_data = db.Column(db.JSON)
+
+
+def process_database_userdata(danmu_type, danmu_data):
+    DATABASE_URI = 'mysql://root:123456@localhost:3306/barrage'
+    engine = create_engine(DATABASE_URI)
+
+    # 创建数据库会话
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    # 根据不同的 danmu_type 构建不同的 SQL 查询语句
+    if danmu_type != 'Adv':
+        # 如果 danmu_type 不在预期的范围内，返回查询错误信息
+        error_message = 'Invalid danmu_type'
+        return {'error': error_message}
+
+    query = session.query(text("midHash FROM rawdanmu_data WHERE bvid = :data")).params(data=danmu_data)
+    user = query.all()
+
+    query = session.query(text("ctime FROM rawdanmu_data WHERE bvid = :data")).params(data=danmu_data)
+    timestamp = query.all()
+
+    query = session.query(text("content FROM rawdanmu_data WHERE bvid = :data")).params(data=danmu_data)
+    content = query.all()
+
+    # 关闭数据库会话
+    session.close()
+
+    # 使用集合(Set)去重，得到发送弹幕的用户数量
+    unique_users = set(user)
+    num_users = len(unique_users)
+
+    # 将字符串时间转换为日期时间对象，并提取小时数
+    time_periods = []
+    for ts_tuple in timestamp:
+        ts_str = ts_tuple[0]  # 获取元组中的字符串时间
+        dt = datetime.fromtimestamp(int(ts_str))  # 从时间戳字符串创建日期时间对象
+        hour = dt.hour  # 获取小时数
+        time_periods.append(hour)
+
+    # 统计各时间段的数量
+    period_counts = {}
+    for period in time_periods:
+        period_counts[period] = period_counts.get(period, 0) + 1
+
+    # 提取统计结果作为折线图的数据，并按照小时从小到大排序
+    sorted_counts = sorted(period_counts.items())
+    hours = [hour for hour, count in sorted_counts]
+    counts = [count for hour, count in sorted_counts]
+
+    # 使用defaultdict创建一个字典，用于存储每个用户的弹幕数量和总长度
+    user_stats = defaultdict(lambda: {'count': 0, 'total_length': 0})
+    # 活跃用户数
+    active_user = 0
+
+    # 遍历user和content列表，统计每个用户的弹幕数量和总长度
+    for u, c in zip(user, content):
+        user_id = u[0]  # 获取用户标识
+        user_stats[user_id]['count'] += 1  # 增加用户的弹幕数量
+        user_stats[user_id]['total_length'] += len(c[0])  # 增加用户的弹幕总长度
+
+    for user_id, stats in user_stats.items():
+        if stats['count'] >= 5:
+            active_user += 1
+
+    # 统计所有用户的总弹幕数量和总长度
+    total_count = sum(stats['count'] for stats in user_stats.values())
+    total_length = sum(stats['total_length'] for stats in user_stats.values())
+
+    # 计算所有用户的平均发布频率和长度
+    total_avg_frequency = total_count / len(user_stats)
+    total_avg_length = total_length / total_count
+
+    processed_data = {
+        'num_users': num_users,
+        'hours': hours,
+        'counts': counts,
+        'total_avg_frequency': round(total_avg_frequency, 3),
+        'total_avg_length': round(total_avg_length, 3),
+        'active_user': active_user
+    }
+    start_id, end_id = get_latest_analysis_range()
+    save_user_analysis_result(danmu_type, danmu_data, start_id, end_id, processed_data)
+    return processed_data
+
+
+def save_user_analysis_result(danmu_type, danmu_data, start_id, end_id, user_data):
+    try:
+        # 创建所有表，如果尚未存在
+        db.create_all()
+        # Get current timestamp
+        analysis_timestamp = int(datetime.now().timestamp())
+        analysis = UserAnalysisResult(
+            danmu_type=danmu_type,
+            danmu_data=danmu_data,
+            start_danmu_id=start_id,
+            end_danmu_id=end_id,
+            analysis_timestamp=analysis_timestamp,
+            user_data=user_data
         )
         db.session.add(analysis)
         db.session.commit()
